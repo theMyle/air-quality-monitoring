@@ -16,14 +16,13 @@ const int CO2_TX = 5;
 const int DHT_PIN = 6;
 #define DHT_TYPE DHT22
 
-// A4 - RTC SDA
-// A5 - RTC SCL
+// RTC SDA - A4
+// RTC SCL - A5
 
-// PMS
-SoftwareSerial PMS_SERIAL(PMS_RX, PMS_TX);
-PMS pms(PMS_SERIAL);
-PMS::DATA pmsRawData;
+// connect this pin to ground to `activate` switch
+const int HACK_SWITCH_PIN = 12;
 
+// data struct - store sensor data
 struct SENSORS_DATA {
   uint16_t pm1_0;
   uint16_t pm2_5;
@@ -34,6 +33,11 @@ struct SENSORS_DATA {
   DateTime dateTime;
 };
 SENSORS_DATA sensorsData;
+
+// PMS
+SoftwareSerial PMS_SERIAL(PMS_RX, PMS_TX);
+PMS pms(PMS_SERIAL);
+PMS::DATA pmsRawData;
 
 // CO2
 SoftwareSerial CO2_SERIAL(CO2_RX, CO2_TX);
@@ -49,7 +53,7 @@ RTC_VERSION RTC;
 // LCD - uses `Serial` to send data
 
 // others
-unsigned long pollingTime = 1000;
+unsigned long pollingTime = 1200;
 
 // function definitions
 void calculate_PMS(SENSORS_DATA&, unsigned long, unsigned long, bool);
@@ -71,12 +75,12 @@ void setup() {
   RTC.begin();
   if (RTC.lostPower()) RTC.adjust(DateTime(F(__DATE__), F(__TIME__)));
 
-  Serial.write("Starting...\n");
+  pinMode(HACK_SWITCH_PIN, INPUT_PULLUP);
 }
 
 // MAIN
 void loop() {
-  Serial.println("\n__________START_READING__________");
+  if (DEBUG) Serial.println("\n__________START_READING__________");
 
   // polling PMS
   PMS_SERIAL.listen();
