@@ -59,6 +59,7 @@ void calculate_RTC(SENSORS_DATA&, RTC_VERSION&, bool);
 void draw_LCD(SENSORS_DATA&);
 void endNextionCommand();
 uint32_t getNextionValue(String component);
+void debug_co2(unsigned long, unsigned long);
 
 // SETUP
 void setup() {
@@ -94,6 +95,7 @@ void loop() {
   calculate_RTC(sensorsData, RTC, DEBUG);
 
   // LCD - Display
+  draw_LCD(sensorsData);
 }
 
 void calculate_RTC(SENSORS_DATA& sensorsData, RTC_VERSION& rtc,
@@ -186,37 +188,26 @@ void endNextionCommand() {
   Serial.write(0xff);
 }
 
-uint32_t getNextionValue(String component) {
-  // 1. Clear the buffer to make sure we don't read old data
-  while (Serial.available()) {
-    Serial.read();
-  }
+void debug_co2(unsigned long startTime, unsigned long waitTime) {
+  while (CO2_SERIAL.available()) CO2_SERIAL.read();
 
-  // 2. Ask the Nextion
-  Serial.print("get ");
-  Serial.print(component);
-  endNextionCommand();
+  while (millis() - startTime < waitTime) {
+    // 2. Print every byte we get in a continuous stream
+    if (CO2_SERIAL.available() > 0) {
+      Serial.print("STREAM: ");
+      while (CO2_SERIAL.available() > 0) {
+        byte b = CO2_SERIAL.read();
+        if (b < 0x10) Serial.print("0");
+        Serial.print(b, HEX);
+        Serial.print(" ");
 
-  // 3. Wait for the reply (Nextion takes ~5-20ms to reply)
-  unsigned long start = millis();
-  while (Serial.available() < 8 && (millis() - start < 150)) {
-    // Timeout safety
-  }
-
-  // 4. Parse the 8-byte response
-  if (Serial.available() >= 8) {
-    if (Serial.read() == 0x71) {  // Numeric data header
-      uint32_t val = 0;
-      val = Serial.read();
-      val |= (uint32_t)Serial.read() << 8;
-      val |= (uint32_t)Serial.read() << 16;
-      val |= (uint32_t)Serial.read() << 24;
-
-      // Toss the three 0xFF end bytes
-      for (int i = 0; i < 3; i++) Serial.read();
-      return val;
+        // If we see the header again, start a new line
+        if (b == 0x42 && CO2_SERIAL.peek() == 0x4D) {
+          Serial.println();
+          Serial.print("STREAM: ");
+        }
+      }
+      Serial.println();
     }
   }
-
-  return 0;  // Return 0 if failed or no flag set
 }
