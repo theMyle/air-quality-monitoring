@@ -42,6 +42,7 @@ PMS::DATA pmsRawData;
 // CO2
 SoftwareSerial CO2_SERIAL(CO2_RX, CO2_TX);
 MHZ19C_Active mhz(CO2_SERIAL);
+const int CO2_CALIBRATION_VALUE = 600;
 
 // TEMPERATURE and HUMIDITY sensor
 DHT dht(DHT_PIN, DHT_TYPE);
@@ -54,12 +55,14 @@ RTC_VERSION RTC;
 
 // others
 unsigned long pollingTime = 1200;
+int lastButtonState = HIGH;
 
 // function definitions
 void calculate_PMS(SENSORS_DATA&, unsigned long, unsigned long, bool);
 void calculate_CO2(SENSORS_DATA&, unsigned long, unsigned long, bool);
 void calculate_DHT(SENSORS_DATA&, bool);
 void calculate_RTC(SENSORS_DATA&, RTC_VERSION&, bool);
+void calibrate_CO2(int, int&, bool);
 void draw_LCD(SENSORS_DATA&);
 void endNextionCommand();
 uint32_t getNextionValue(String component);
@@ -90,6 +93,7 @@ void loop() {
   // polling CO2
   CO2_SERIAL.listen();
   startWait = millis();
+  calibrate_CO2(CO2_CALIBRATION_VALUE, lastButtonState, DEBUG);
   calculate_CO2(sensorsData, startWait, pollingTime, DEBUG);
 
   // DHT
@@ -146,6 +150,22 @@ void calculate_PMS(SENSORS_DATA& sensorsData, unsigned long startTime,
       break;
     }
   }
+}
+
+void calibrate_CO2(int value, int& lastButtonState, bool debug = false) {
+  int calibrate = digitalRead(HACK_SWITCH_PIN);
+
+  if (calibrate == LOW && lastButtonState == HIGH) {
+    mhz.calibrate(value);
+
+    if (debug) {
+      Serial.print("\nCO2 calibrate to");
+      Serial.print(value);
+      Serial.println("ppm");
+    }
+  }
+
+  lastButtonState = calibrate;
 }
 
 void calculate_CO2(SENSORS_DATA& sensorsData, unsigned long startTime,
