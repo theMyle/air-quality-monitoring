@@ -147,7 +147,7 @@ void calculate_PMS(SENSORS_DATA& sensorsData, unsigned long startTime,
 void calculate_CO2(SENSORS_DATA& sensorsData, unsigned long startTime,
                    unsigned long waitTime, bool debug = false) {
   while (millis() - startTime < waitTime) {
-    MHZ19C_Data co2_results = mhz.read();
+    MHZ19C_Data co2_results = mhz.read(debug);
     if (co2_results.success) {
       sensorsData.co_2 = co2_results.co2;
 
@@ -180,34 +180,15 @@ void calculate_DHT(SENSORS_DATA& sensorsData, bool debug = false) {
 
 void draw_LCD(SENSORS_DATA& sensorsData) {
   // TODO
+
+  // just use Serial
+  // Serial.write("p01.txt=");
+  // Serial.write(sensorsData.c02);
+  // then call endNextionCommand() to `send` - do this for every property change
 }
 
 void endNextionCommand() {
   Serial.write(0xff);
   Serial.write(0xff);
   Serial.write(0xff);
-}
-
-void debug_co2(unsigned long startTime, unsigned long waitTime) {
-  while (CO2_SERIAL.available()) CO2_SERIAL.read();
-
-  while (millis() - startTime < waitTime) {
-    // 2. Print every byte we get in a continuous stream
-    if (CO2_SERIAL.available() > 0) {
-      Serial.print("STREAM: ");
-      while (CO2_SERIAL.available() > 0) {
-        byte b = CO2_SERIAL.read();
-        if (b < 0x10) Serial.print("0");
-        Serial.print(b, HEX);
-        Serial.print(" ");
-
-        // If we see the header again, start a new line
-        if (b == 0x42 && CO2_SERIAL.peek() == 0x4D) {
-          Serial.println();
-          Serial.print("STREAM: ");
-        }
-      }
-      Serial.println();
-    }
-  }
 }

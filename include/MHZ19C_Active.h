@@ -4,8 +4,12 @@
 #include <Arduino.h>
 #include <SoftwareSerial.h>
 
+// Data Sheet - SC8 CO2 5KV1.4
+// https://community.openenergymonitor.org/uploads/short-url/tDiJ3EWtv7OlcHZnNgX3dFv8Cpv.pdf
+
 struct MHZ19C_Data {
   int co2 = 0;
+  int co2_alt = 0;
   int temp = 0;
   bool success = false;
   bool checksum = false;
@@ -14,26 +18,9 @@ struct MHZ19C_Data {
 class MHZ19C_Active {
  private:
   Stream* _serial;
-  byte _buffer[14];
-
-  uint16_t calculateCRC(uint8_t* data, uint8_t len) {
-    uint16_t crc = 0xFFFF;
-    for (uint8_t i = 0; i < len; i++) {
-      crc ^= (uint16_t)data[i];
-      for (uint8_t j = 8; j != 0; j--) {
-        if ((crc & 0x0001) != 0) {
-          crc >>= 1;
-          crc ^= 0xA001;
-        } else {
-          crc >>= 1;
-        }
-      }
-    }
-    return crc;
-  }
+  byte _buffer[16];
 
  public:
-  // Constructor: Pass the SoftwareSerial or HardwareSerial object
   MHZ19C_Active(Stream& serial) : _serial(&serial) {}
 
   void calibrate(uint16_t targetPPM) {
@@ -42,13 +29,18 @@ class MHZ19C_Active {
     byte df1 = targetPPM >> 8;    // High byte
     byte df2 = targetPPM & 0xFF;  // Low byte
 
-    // Construct command: 11 03 03 DF1 DF2 [cite: 108, 115]
-    byte command[7] = {0x11, 0x03, 0x03, df1, df2, 0x00, 0x00};
+    byte command[6] = {0x11, 0x03, 0x03, df1, df2, 0x00};
+    byte checksum = 0;
 
-    // Calculate and add CRC
-    uint16_t crc = calculateCRC(command, 5);
-    command[5] = crc & 0xFF;  // Modbus CRC usually Low byte first
-    command[6] = crc >> 8;    // Then High byte
+    for (int i = 0; i < (sizeof(command) / sizeof(byte)); i++) {
+      checksum += command[i];
+    }
+
+    // 30 - magic number manufacturer inferred
+    checksum = (checksum + 0x1E) & 0xFF;
+
+    // insert end
+    command[(sizeof(command) / sizeof(byte)) - 1] = checksum;
 
     // Send the command
     // Must be 11 03 03 DF1 DF2 CS
@@ -63,12 +55,12 @@ class MHZ19C_Active {
       if (_serial->read() == 0x42) {    // Header 0x42
         if (_serial->read() == 0x4D) {  // Header 0x4D
 
-          _serial->readBytes(_buffer, 14);
+          _buffer[0] = 0x42;
+          _buffer[1] = 0x4D;
+          _serial->readBytes(&_buffer[2], 14);
 
           if (debug) {
-            Serial.print("42 4D ");  // Headers
-            for (int i = 0; i < 14; i++) {
-              Serial.print(" ");
+            for (int i = 0; i < 16; i++) {
               if (_buffer[i] < 0x10) Serial.print("0");
               Serial.print(_buffer[i], HEX);
               Serial.print(" ");
@@ -77,8 +69,14 @@ class MHZ19C_Active {
           }
 
           // Map bytes to CO2 and Temp
-          int co2 = ((_buffer[0] << 8) | _buffer[1]) - 2000;
+          // byte 2 and 3 - reverse engineer testing
+          int co2 = ((_buffer[2] << 8) | _buffer[3]) -
+                    2000;  // hehe - remove when calibrated
 
+          // byte 4 and 5 - official docs
+          int co2_alt = ((_buffer[4] << 8) | _buffer[5]);
+
+          // hehe - remove when calibrated
           if (co2 < 400) {
             data.co2 = 400;
           } else {
@@ -87,11 +85,6 @@ class MHZ19C_Active {
 
           data.temp = _buffer[6];
           data.success = true;
-
-          // Optional: Clear stale bytes to stay real-time
-          while (_serial->available() > 16) {
-            _serial->read();
-          }
         }
       }
     }
