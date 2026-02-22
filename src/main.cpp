@@ -75,6 +75,8 @@ void setup() {
 
 // MAIN
 void loop() {
+  Serial.println("\n__________START_READING__________");
+
   // polling PMS
   PMS_SERIAL.listen();
   unsigned long startWait = millis();
@@ -100,7 +102,7 @@ void calculate_RTC(SENSORS_DATA& sensorsData, RTC_VERSION& rtc,
   sensorsData.dateTime = now;
 
   if (debug) {
-    Serial.println("RTC Result:");
+    Serial.println("\nRTC Result:");
     Serial.print(now.year(), DEC);
     Serial.print('/');
     Serial.print(now.month(), DEC);
@@ -125,7 +127,7 @@ void calculate_PMS(SENSORS_DATA& sensorsData, unsigned long startTime,
       sensorsData.pm10_0 = pmsRawData.PM_AE_UG_10_0;
 
       if (debug) {
-        Serial.println("PMS Result:");
+        Serial.println("\nPMS Result:");
         Serial.print("PM 1.0 (ug/m3): ");
         Serial.println(pmsRawData.PM_AE_UG_1_0);
 
@@ -134,7 +136,6 @@ void calculate_PMS(SENSORS_DATA& sensorsData, unsigned long startTime,
 
         Serial.print("PM 10.0 (ug/m3): ");
         Serial.println(pmsRawData.PM_AE_UG_10_0);
-        Serial.println();
       }
       break;
     }
@@ -149,7 +150,7 @@ void calculate_CO2(SENSORS_DATA& sensorsData, unsigned long startTime,
       sensorsData.co_2 = co2_results.co2;
 
       if (debug) {
-        Serial.print("CO2 Result: ");
+        Serial.print("\nCO2 Result: ");
         Serial.print(co2_results.co2);
         Serial.println(" ppm");
       }
@@ -163,7 +164,7 @@ void calculate_DHT(SENSORS_DATA& sensorsData, bool debug = false) {
   sensorsData.humidity = dht.readHumidity();
 
   if (debug) {
-    Serial.println("DHT Result:");
+    Serial.println("\nDHT Result:");
 
     Serial.print("temperature: ");
     Serial.println(sensorsData.temperature);
