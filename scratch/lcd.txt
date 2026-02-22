@@ -1,0 +1,33 @@
+
+#include <Arduino.h>
+#include <MHZ19C_Active.h>
+#include <SoftwareSerial.h>
+
+SoftwareSerial LCD(8, 9);
+
+void endNextionCommand() {
+  LCD.write(0xff);
+  LCD.write(0xff);
+  LCD.write(0xff);
+}
+
+void setup() {
+  Serial.begin(9600);
+  LCD.begin(9600);
+
+  LCD.print("hours.txt=\"9\"");
+  endNextionCommand();
+
+  LCD.print("min.txt=\"9\"");
+  endNextionCommand();
+
+  LCD.print("sec.txt=\"9\"");
+  endNextionCommand();
+
+  LCD.print("ttime.txt=\"SUPER SECRET TIME\"");
+  endNextionCommand();
+
+  Serial.println("starting");
+}
+
+void loop() {}
