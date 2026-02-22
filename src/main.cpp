@@ -2,18 +2,22 @@
 #include <DHT.h>
 #include <MHZ19C_Active.h>
 #include <PMS.h>
+#include <RTClib.h>
 #include <SoftwareSerial.h>
 
 #define DEBUG true
 
 // PINS
-const int PMS_RX;
-const int PMS_TX;
-const int CO2_RX;
-const int CO2_TX;
+const int PMS_RX = 2;
+const int PMS_TX = 3;
+const int CO2_RX = 4;
+const int CO2_TX = 5;
 
-const int DHT_PIN;
+const int DHT_PIN = 6;
 #define DHT_TYPE DHT22
+
+// A4 - RTC SDA
+// A5 - RTC SCL
 
 // PMS
 SoftwareSerial PMS_SERIAL(PMS_RX, PMS_TX);
@@ -27,6 +31,7 @@ struct SENSORS_DATA {
   int co_2;
   float temperature;
   float humidity;
+  DateTime dateTime;
 };
 SENSORS_DATA sensorsData;
 
@@ -38,6 +43,8 @@ MHZ19C_Active mhz(CO2_SERIAL);
 DHT dht(DHT_PIN, DHT_TYPE);
 
 // TIMER
+#define RTC_VERSION RTC_DS3231
+RTC_VERSION RTC;
 
 // LCD - uses `Serial` to send data
 
@@ -47,7 +54,8 @@ unsigned long pollingTime = 1000;
 // function definitions
 void calculate_PMS(SENSORS_DATA&, unsigned long, unsigned long, bool);
 void calculate_CO2(SENSORS_DATA&, unsigned long, unsigned long, bool);
-void calculate_DHT(SENSORS_DATA&);
+void calculate_DHT(SENSORS_DATA&, bool);
+void calculate_RTC(SENSORS_DATA&, RTC_VERSION&, bool);
 void draw_LCD(SENSORS_DATA&);
 void endNextionCommand();
 uint32_t getNextionValue(String component);
@@ -58,6 +66,9 @@ void setup() {
   PMS_SERIAL.begin(9600);
   CO2_SERIAL.begin(9600);
   dht.begin();
+
+  RTC.begin();
+  if (RTC.lostPower()) RTC.adjust(DateTime(F(__DATE__), F(__TIME__)));
 
   Serial.write("Starting...\n");
 }
@@ -78,8 +89,31 @@ void loop() {
   calculate_DHT(sensorsData, DEBUG);
 
   // Timer
+  calculate_RTC(sensorsData, RTC, DEBUG);
 
   // LCD - Display
+}
+
+void calculate_RTC(SENSORS_DATA& sensorsData, RTC_VERSION& rtc,
+                   bool debug = false) {
+  DateTime now = rtc.now();
+  sensorsData.dateTime = now;
+
+  if (debug) {
+    Serial.println("RTC Result:");
+    Serial.print(now.year(), DEC);
+    Serial.print('/');
+    Serial.print(now.month(), DEC);
+    Serial.print('/');
+    Serial.print(now.day(), DEC);
+    Serial.print(" - ");
+    Serial.print(now.hour(), DEC);
+    Serial.print(':');
+    Serial.print(now.minute(), DEC);
+    Serial.print(':');
+    Serial.print(now.second(), DEC);
+    Serial.println();
+  }
 }
 
 void calculate_PMS(SENSORS_DATA& sensorsData, unsigned long startTime,
@@ -132,12 +166,10 @@ void calculate_DHT(SENSORS_DATA& sensorsData, bool debug = false) {
     Serial.println("DHT Result:");
 
     Serial.print("temperature: ");
-    Serial.print(sensorsData.temperature);
-    Serial.print("\n");
+    Serial.println(sensorsData.temperature);
 
     Serial.print("humidity: ");
-    Serial.print(sensorsData.humidity);
-    Serial.print("\n");
+    Serial.println(sensorsData.humidity);
   }
 }
 
